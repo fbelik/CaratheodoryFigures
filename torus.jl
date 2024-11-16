@@ -28,10 +28,10 @@ plt1 = visualize(m, markersize=2)
 end; plt1
 save("$(name)_shape.pdf", plt1)
 
-addPts!(m, 10000)
+addPts!(m, 100000)
 
 basis = (i,x) -> x^i
-hyperbolic_cross = (i,j,k) -> (i+1)*(j+1)*(k+1) <= 20
+hyperbolic_cross = (i,j,k) -> (i+1)*(j+1)*(k+1) <= 16
 
 plt2 = visualize_multi_indices(hyperbolic_cross)
 save("$(name)_cross.pdf", plt2)
@@ -47,8 +47,8 @@ plt3 = visualize(m_pruned, markersize=10)
     xs = (R .* tks .+ 0.5) .* cos(θ - π/2)
     ys = (R .* tks .+ 0.5) .* sin(θ - π/2)
     zs = sqrt.(max.(0.0,R^2 .- (xs .- x0).^2 .- (ys .- y0).^2))
-    lines!(plt3[1,1], xs, ys,  z0 .+ zs, color=(:grey, 0.5))
-    lines!(plt3[1,1], xs, ys,  z0 .- zs, color=(:grey, 0.5))
+    lines!(plt3[1,1], xs, ys,  z0 .+ zs, color=(:grey, 0.1))
+    lines!(plt3[1,1], xs, ys,  z0 .- zs, color=(:grey, 0.1))
     θ += R/3
     ct += 1
 end; plt3

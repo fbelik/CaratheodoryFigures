@@ -279,8 +279,8 @@ function visualize_multi_indices(poly_cross::Function; markersize=5)
             end
         end
         fig = Figure();
-        ax = Axis(fig[1,1], xlabel="x", xticks=0:P,
-                ylabel="y", yticks=0:P,
+        ax = Axis(fig[1,1], xlabel="x", xticks=0:2:P,
+                ylabel="y", yticks=0:2:P,
                 title="Basis Multi-Index Set")
         scatter!(ax, x, y; markersize=10, strokewidth=0)
         fig
@@ -304,10 +304,11 @@ function visualize_multi_indices(poly_cross::Function; markersize=5)
             end
         end
         fig = Figure();
-        ax = Axis3(fig[1,1], xlabel="x", xticks=0:P,
-                    ylabel="y", yticks=0:P,
-                    zlabel="z", zticks=0:P,
-                    title="Basis Multi-Index Set")
+        ax = Axis3(fig[1,1], xlabel="x", xticks=0:2:P,
+                    ylabel="y", yticks=0:2:P,
+                    zlabel="z", zticks=0:2:P,
+                    title="Basis Multi-Index Set",
+                    azimuth=1.275π + π)
         scatter!(ax, x, y, z; markersize=10, strokewidth=0)
         fig
     end

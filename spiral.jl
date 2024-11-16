@@ -26,7 +26,7 @@ save("$(name)_shape.pdf", plt1)
 addPts!(m, 100000)
 
 basis = (i,x) -> legendrep(i,x)
-hyperbolic_cross = (i,j) -> (i + j) <= 15
+hyperbolic_cross = (i,j) -> (i + j) <= 25
 
 plt2 = visualize_multi_indices(hyperbolic_cross)
 save("$(name)_cross.pdf", plt2)

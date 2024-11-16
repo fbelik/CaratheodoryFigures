@@ -29,10 +29,10 @@ m = MonteCarloQuadrature(in_pumpkin)
 plt1 = visualize(m)
 save("$(name)_shape.pdf", plt1)
 
-addPts!(m, 10000)
+addPts!(m, 100000)
 
 basis = (i,x) -> besselj(i,x)
-hyperbolic_cross = (i,j) -> (i^(1/3) + j^(1/3))^3 <= 21
+hyperbolic_cross = (i,j) -> (i^(1/3) + j^(1/3))^3 <= 31
 
 plt2 = visualize_multi_indices(hyperbolic_cross)
 save("$(name)_cross.pdf", plt2)
