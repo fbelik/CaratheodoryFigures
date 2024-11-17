@@ -8,8 +8,9 @@ using Bessels
 using PolygonOps
 using CSV
 using DataFrames
-#using Makie.GeometryBasics
 Random.seed!(1234) # For reproducibility
+
+include("lp_nnls.jl")
 
 inpoly(x,y,xv,yv) = begin
     pt = [x,y]
@@ -92,7 +93,7 @@ function addPts!(m::MonteCarloQuadrature, dM::Int, maxiter=1000)
     m
 end
 
-function prune(m::MonteCarloQuadrature, basis::Function, in_poly_cross::Function)
+function prune(m::MonteCarloQuadrature, basis::Function, in_poly_cross::Function; method=:cs)
     D = m.D
     pts = m.pts
     M = length(pts)
@@ -193,11 +194,20 @@ function prune(m::MonteCarloQuadrature, basis::Function, in_poly_cross::Function
     end
     V = OnDemandMatrix(N, M, vecfun, by=:cols)
     w = m.w
-    w_pruned,inds = caratheodory_pruning(V, w, progress=true)
+    w_pruned,inds = begin
+        if method == :lp
+            caratheodory_pruning_lp(V[:,:], w)
+        elseif method == :nnls
+            caratheodory_pruning_nnls(V[:,:], w)
+        else # CS Pruning
+            caratheodory_pruning(V, w, progress=true)
+        end
+    end
+    sort!(inds)
     return MonteCarloQuadrature(m.D, m.M, m.in_shape, pts[inds], w_pruned[inds])
 end
 
-function visualize(m::MonteCarloQuadrature; markersize=5)
+function visualize(m::MonteCarloQuadrature; markersize=10, title="Quadrature Rule", weight_label="Weights", crange=nothing)
     if m.D == 2
         x = [p[1] for p in m.pts]
         y = [p[2] for p in m.pts]
@@ -206,20 +216,25 @@ function visualize(m::MonteCarloQuadrature; markersize=5)
         maxv = length(col) == 0 ? 1.0 : ceil(Int, maximum(col))
         if minv == maxv
             maxv += 1
+            minv -= 1
         end
-        colorrange = [minv, maxv]
+        colorrange = isnothing(crange) ? [minv, maxv] : log10.(crange)
 
-        fig = Figure();
+        fig = Figure(fontsize=16);
         Axis(fig[1,1], xlabel="x", xticks=(-1:1, [L"-1",L"0",L"1"]),
                        ylabel="y", yticks=(-1:1, [L"-1",L"0",L"1"]),
-                       limits=((-1,1),(-1,1)), width=400, height=400)
+                       limits=((-1,1),(-1,1)), width=400, height=400,
+                       title=title)
         tks = range(-1,1,1001)
         cm = cgrad([:grey,:white])
         contourf!(fig[1,1], tks, tks, m.in_shape, colormap = cm)
         cmap = Reverse(:inferno)
-        scatter!(fig[1,1], x, y; color=col, colormap = cmap, markersize=markersize, strokewidth=0, colorrange = colorrange)
+        scatter!(fig[1,1], x, y; color=col, colormap = cmap, 
+                 markersize=markersize, strokewidth=markersize/10, 
+                 colorrange = colorrange)
         if length(col) != 0
-            Colorbar(fig[1,2], ticks = (minv:maxv, [latexstring("10^{$i}") for i in minv:maxv]), colorrange = colorrange, colormap = cmap, label = "Weights")
+            Colorbar(fig[1,2], ticks = (-16:16, [latexstring("10^{$i}") for i in -16:16]), 
+                     colorrange = colorrange, colormap = cmap, label = weight_label)
         end
         resize_to_layout!(fig)
         fig
@@ -232,21 +247,24 @@ function visualize(m::MonteCarloQuadrature; markersize=5)
         maxv = length(col) == 0 ? 1.0 : ceil(Int, maximum(col))
         if minv == maxv
             maxv += 1
+            minv -= 1
         end
-        colorrange = [minv, maxv]
+        colorrange = isnothing(crange) ? [minv, maxv] : log10.(crange)
         cmap = Reverse(:inferno)
 
-        fig = Figure();
+        fig = Figure(fontsize=16);
         Axis3(fig[1,1], xlabel="x", xticks=(-1:1, [L"-1",L"0",L"1"]), 
               ylabel="y", yticks=(-1:1, [L"-1",L"0",L"1"]),
               zlabel="z", zticks=(-1:1, [L"-1",L"0",L"1"]),
+              title=title,
               limits=((-1,1),(-1,1),(-1,1)),
               xgridvisible = false,
               ygridvisible = false,
               zgridvisible = false)
         scatter!(fig[1, 1], x, y, z; color=col, colormap = cmap, markersize=markersize, strokewidth=0, colorrange = colorrange)
         if length(col) != 0
-            Colorbar(fig[1, 2], ticks = (minv:maxv, [latexstring("10^{$i}") for i in minv:maxv]), colorrange = colorrange, colormap = cmap, label = "Weights")
+            Colorbar(fig[1, 2], ticks = (-16:16, [latexstring("10^{$i}") for i in -16:16]), 
+                     colorrange = colorrange, colormap = cmap, label = weight_label)
         end
         fig
     end
@@ -278,7 +296,7 @@ function visualize_multi_indices(poly_cross::Function; markersize=5)
                 end
             end
         end
-        fig = Figure();
+        fig = Figure(fontsize=16);
         ax = Axis(fig[1,1], xlabel="x", xticks=0:2:P,
                 ylabel="y", yticks=0:2:P,
                 title="Basis Multi-Index Set")
@@ -303,7 +321,7 @@ function visualize_multi_indices(poly_cross::Function; markersize=5)
                 end
             end
         end
-        fig = Figure();
+        fig = Figure(fontsize=16);
         ax = Axis3(fig[1,1], xlabel="x", xticks=0:2:P,
                     ylabel="y", yticks=0:2:P,
                     zlabel="z", zticks=0:2:P,

@@ -11,7 +11,8 @@ in_torus(x,y,z) = begin
 end
 
 m = MonteCarloQuadrature(in_torus, 3)
-plt1 = visualize(m, markersize=2)
+
+plt1 = visualize(m, title="Torus Shape")
 θ = 0.0; ct = 0; tks = range(-1,1,101); while θ <= (2π)
     global θ, ct
     x0 = 0.5 * cos(θ - π/2)
@@ -37,7 +38,7 @@ plt2 = visualize_multi_indices(hyperbolic_cross)
 save("$(name)_cross.pdf", plt2)
 
 m_pruned = prune(m, basis, hyperbolic_cross)
-plt3 = visualize(m_pruned, markersize=10)
+plt3 = visualize(m_pruned, markersize=10, title="Torus Pruned Quadrature Rule")
 θ = 0.0; ct = 0; tks = range(-1,1,101); while θ <= (2π)
     global θ, ct
     x0 = 0.5 * cos(θ - π/2)
@@ -55,7 +56,7 @@ end; plt3
 save("$(name)_pruned_$(length(m.pts))_$(length(m_pruned.pts)).pdf", plt3)
 save_mc(name, m_pruned)
 
-f(x,y) = basis(1,x) * basis(2,y)
+f(x,y,z) = basis(1,x) * basis(2,y) * basis(1, z)
 relerr = begin
     mf = m(f)
     mpf = m_pruned(f)

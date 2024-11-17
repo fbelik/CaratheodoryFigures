@@ -12,7 +12,7 @@ end
 
 m = MonteCarloQuadrature(in_mickey)
 
-plt1 = visualize(m)
+plt1 = visualize(m, title="Mickey Shape")
 save("$(name)_shape.pdf", plt1)
 
 addPts!(m, 100000)
@@ -24,7 +24,7 @@ plt2 = visualize_multi_indices(hyperbolic_cross)
 save("$(name)_cross.pdf", plt2)
 
 m_pruned = prune(m, basis, hyperbolic_cross)
-plt3 = visualize(m_pruned, markersize=10)
+plt3 = visualize(m_pruned, markersize=10, title="Mickey Pruned Quadrature Rule")
 save("$(name)_pruned_$(length(m.pts))_$(length(m_pruned.pts)).pdf", plt3)
 save_mc(name, m_pruned)
 
