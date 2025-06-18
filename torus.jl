@@ -1,7 +1,8 @@
 include("quadrature.jl")
 
 name = "torus"
-in_torus(x,y,z) = begin 
+in_torus(X) = begin 
+    x,y,z = X
     x0 = 0.5 * x / sqrt(x^2 + y^2)
     y0 = 0.5 * y / sqrt(x^2 + y^2)
     θ = (x == 0 ? 0.0 : atan(y / x) + π/2)
@@ -29,15 +30,15 @@ plt1 = visualize(m, title="Torus Shape")
 end; plt1
 save("$(name)_shape.pdf", plt1)
 
-addPts!(m, 100000)
-
 basis = (i,x) -> x^i
-hyperbolic_cross = (i,j,k) -> (i+1)*(j+1)*(k+1) <= 16
+in_multi_index_set = (is) -> prod(is .+ 1) <= 16
 
-plt2 = visualize_multi_indices(hyperbolic_cross)
+plt2 = visualize_multi_indices(in_multi_index_set, m.D)
 save("$(name)_cross.pdf", plt2)
 
-m_pruned = prune(m, basis, hyperbolic_cross)
+M = 50000
+m_pruned = addPrune(m, M, basis, in_multi_index_set)
+
 plt3 = visualize(m_pruned, markersize=10, title="Torus Pruned Quadrature Rule")
 θ = 0.0; ct = 0; tks = range(-1,1,101); while θ <= (2π)
     global θ, ct
@@ -53,12 +54,12 @@ plt3 = visualize(m_pruned, markersize=10, title="Torus Pruned Quadrature Rule")
     θ += R/3
     ct += 1
 end; plt3
-save("$(name)_pruned_$(length(m.pts))_$(length(m_pruned.pts)).pdf", plt3)
+save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
 save_mc(name, m_pruned)
 
-f(x,y,z) = basis(1,x) * basis(2,y) * basis(1, z)
-relerr = begin
-    mf = m(f)
-    mpf = m_pruned(f)
-    abs((mf - mpf) / mf)
-end
+f = x -> x[1]
+m_pruned(f)
+
+# # To add more points
+# dM = 50000
+# m_pruned = addPrune(m_pruned, dM, basis, in_multi_index_set)

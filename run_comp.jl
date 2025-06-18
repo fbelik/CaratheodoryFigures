@@ -59,7 +59,7 @@ function time_test_M(itrs = 4:14, time_tol=5.0, reps=5)
     Axis(fig[1,1], xlabel="M", xscale=log2, xticks=(2 .^ (itrs), [latexstring("2^{$i}") for i in itrs]),
                 ylabel="Time (s)", yscale=log2, yticks=(2.0 .^ (-16:2:16), [latexstring("2^{$i}") for i in (-16:2:16)]),
                 title="Random Matrix Runtime Comparison with N=$(Ns[1])")
-    scatter!(fig[1,1], Ms[1:idx], times[1], label="CS Pruning", markersize=15)
+    scatter!(fig[1,1], Ms[1:idx], times[1], label="GSCSP", markersize=15)
     scatter!(fig[1,1], Ms[1:idx], times[2], label="LP", markersize=15)
     scatter!(fig[1,1], Ms[1:idx], times[3], label="NNLS", markersize=15)
     lines!(fig[1,1], Ms[1:idx], 2.0 .^ (itrs[1:idx]) .* (times[3][1]) ./ (2.0^(itrs[1])), label="Slope 1", linestyle=:dash, color=:black)
@@ -76,7 +76,7 @@ function time_test_NM(itrs = 1:8, time_tol=1.0, reps=5)
     Axis(fig[1,1], xlabel="M", xscale=log2, xticks=(2 .^ (2 .* itrs), [latexstring("2^{$(2*i)}") for i in itrs]),
                 ylabel="Time (s)", yscale=log2, yticks=(2.0 .^ (-16:2:16), [latexstring("2^{$i}") for i in (-16:2:16)]),
                 title="Random Matrix Runtime Comparison with M=N²")
-    scatter!(fig[1,1], Ms[1:idx], times[1], label="CS Pruning", markersize=15)
+    scatter!(fig[1,1], Ms[1:idx], times[1], label="GSCSP", markersize=15)
     scatter!(fig[1,1], Ms[1:idx], times[2], label="LP", markersize=15)
     scatter!(fig[1,1], Ms[1:idx], times[3], label="NNLS", markersize=15)
     lines!(fig[1,1], Ms[1:idx], Ms[1:idx] .* (times[3][1]) ./ (2.0^(itrs[1])), label=nothing, linestyle=:dash, color=:black)

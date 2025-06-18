@@ -8,6 +8,10 @@ using Bessels
 using PolygonOps
 using CSV
 using DataFrames
+using LinearAlgebra
+using Statistics
+using ProgressBars
+using LaTeXStrings
 Random.seed!(1234) # For reproducibility
 
 include("lp_nnls.jl")
@@ -29,6 +33,30 @@ mutable struct MonteCarloQuadrature
     w::Vector{Float64}
 end
 
+function dTV(m::MonteCarloQuadrature,n::MonteCarloQuadrature)
+    @assert m.D == n.D
+    m_dict = Dict(p => w for (p,w) in zip(m.pts, m.w))
+    n_dict = Dict(p => w for (p,w) in zip(n.pts, n.w))
+    num = 0.0
+    den1 = 0.0
+    den2 = 0.0
+    for (pt, w) in m_dict
+        den1 += abs(w)
+        if pt in keys(n_dict)
+            num += abs(w - n_dict[pt])
+        else
+            num += abs(w)
+        end
+    end
+    for (pt, w) in n_dict
+        den2 += abs(w)
+        if !(pt in keys(m_dict))
+            num += abs(w)
+        end
+    end
+    return num / (den1 + den2)
+end
+
 function save_mc(name::String, m::MonteCarloQuadrature)
     name *= ".csv"
     df = DataFrame(
@@ -43,9 +71,6 @@ function Base.show(io::Core.IO, mime::MIME"text/plain", m::MonteCarloQuadrature)
 end
 
 function MonteCarloQuadrature(in_shape::Function, D=2)
-    if !(D in (2,3))
-        error("Must set D=2 or D=3")
-    end
     M = 0
     pts = Vector{Float64}[]
     w = Float64[]
@@ -64,147 +89,168 @@ end
 function (m::MonteCarloQuadrature)(f::Function)
     res = 0.0
     for (w,p) in zip(m.w, m.pts)
-        res += w * f(p...)
+        res += w * f(p)
     end
     return res
 end
 
-function randPt(m::MonteCarloQuadrature, maxiter=10000)
+function randPt(m::MonteCarloQuadrature, maxiter=10000)::Tuple{Vector{Float64},Int}
     res = rand(m.D) .* 2 .- 1
     ct = 1
-    while !(m.in_shape(res...))
+    while !(m.in_shape(res))
         if ct == maxiter
             error("Could not find an interior point in $maxiter attempts")
         end
         res .= rand(m.D) .* 2 .- 1
         ct += 1
     end
-    return res
+    return (res, ct)
 end
 
-function addPts!(m::MonteCarloQuadrature, dM::Int, maxiter=1000)
+function build_multi_index_set(in_multi_index_set::Function, D::Int)
+    multi_indices = NTuple{D,Int}[]
+    inds = zeros(Int, D)
+    push!(multi_indices, tuple(inds...))
+    inds[1] += 1
+    while true
+        # Check if terminated 
+        if maximum(inds) == 0
+            break
+        end
+        if in_multi_index_set(inds)
+            # Add to multi index set and iterate
+            push!(multi_indices, tuple(inds...))
+            inds[1] += 1
+        else
+            # Iterate
+            i = findfirst(x -> (x>0), inds)
+            inds[i] = 0
+            if i < D
+                inds[i+1] += 1
+            end
+        end        
+    end
+    return multi_indices
+end
+
+function vandermonde_matrix_weights(m::MonteCarloQuadrature, basis, in_multi_index_set::Function, dM::Int=0; maxiter=10000)
+    multi_indices = build_multi_index_set(in_multi_index_set, m.D)
+    M0 = length(m.w)
+    M = M0 + dM
+    D = m.D
+    P = multi_indices[end][end]
+    pts = m.pts
+    N = length(multi_indices)
+    P_alloc = zeros(D, P+1)
+    # cts = Dict{Int,Int}()
+    vecfun = ipt -> begin
+        pt, ct = begin
+            if ipt <= M0
+                pts[ipt], 1
+            else
+                randPt(m, maxiter)
+            end
+        end
+        # cts[ipt] = ct
+        for d in 1:D
+            for p in 0:P
+                P_alloc[d,p+1] = basis(p, pt[d])
+            end
+        end
+        res = ones(N)
+        for (i,inds) in enumerate(multi_indices)
+            for d in 1:D
+                res[i] *= P_alloc[d,inds[d]+1]
+            end
+        end
+        return VandermondeVector(res, pt)
+    end
+    V = OnDemandMatrix(N, M, vecfun, TV=VandermondeVector{Float64,Vector{Float64},Vector{Float64}})
+    elemfun = ipt -> begin
+        if ipt <= M0
+            return m.w[ipt] * (M0 / M)
+        end
+        return 1 / M #(2^m.D) / M / cts[ipt]
+    end
+    w = OnDemandVector(M, elemfun)
+    return V, w
+end
+
+function addPrune(m::MonteCarloQuadrature, dM::Int, basis::Function, 
+                   in_multi_index_set::Function; maxiter=10000, method=:cs, progress=true, 
+                   return_error=false, noise=1, kernel_kwargs...)
+    D = m.D
+    pts = m.pts
+    M0 = m.M
+    M = M0 + dM
+    V, w = vandermonde_matrix_weights(m, basis, in_multi_index_set, dM; maxiter=maxiter)
+    res = begin
+        if method == :lp
+            caratheodory_pruning_lp(Matrix(V), w; kernel_kwargs...)
+       elseif method == :nnls
+           caratheodory_pruning_nnls(Matrix(V), w; kernel_kwargs...)
+       elseif method == :greedy
+            caratheodory_pruning_greedy(Matrix(V), w; kernel_kwargs...)
+       else
+           caratheodory_pruning(V, w, progress=progress, return_error=return_error; kernel_kwargs...)
+       end
+    end
+    w_pruned = res[1]
+    inds = res[2]
+    pts = [V.vecs[i].pt for i in inds]
+    if return_error
+        if (method != :lp && method != :nnls && method != :greedy)
+            err = res[3]
+        else
+            err = norm(V*w .- V[:,inds]*w_pruned[inds])
+        end
+        return MonteCarloQuadrature(D, M, m.in_shape, pts, w_pruned[inds]), err
+    end
+    return MonteCarloQuadrature(D, M, m.in_shape, pts, w_pruned[inds])
+end
+
+function addPts!(m::MonteCarloQuadrature, dM::Int, maxiter=10000)
     M = m.M
     m.w .*= (M / (M + dM))
     for i in 1:dM
-        push!(m.pts, randPt(m, maxiter))
-        push!(m.w, 1 / (M + dM))
+        pt, ct = randPt(m, maxiter)
+        push!(m.pts, pt)
+        push!(m.w, 1 / (M + dM))#(2 ^ m.D) / (M + dM) / ct)
     end
     m.M += dM
     m
 end
 
-function prune(m::MonteCarloQuadrature, basis::Function, in_poly_cross::Function; method=:cs)
+function prune(m::MonteCarloQuadrature, basis::Function, 
+                in_multi_index_set::Function; maxiter=10000, method=:cs, progress=true, 
+                return_error=false, kernel_kwargs...)
     D = m.D
     pts = m.pts
     M = length(pts)
-    P = 0
-    multi_indices = Vector{Int}[]
-    while in_poly_cross(P+1, zeros(D-1)...)
-        P += 1
-    end
-    if D == 2
-        for i in 0:P
-            for j in 0:P
-                if in_poly_cross(i, j)
-                    push!(multi_indices, [i,j])
-                else
-                    break
-                end
-            end
-        end
-    else # D == 3
-        for i in 0:P
-            for j in 0:P
-                for k in 0:P
-                    if in_poly_cross(i, j, k)
-                        push!(multi_indices, [i,j,k])
-                    else
-                        break
-                    end
-                end
-            end
-        end
-    end
-    N = length(multi_indices)
-    if M < N 
-        println("No pruning required, returning original rule")
-        return m
-    end
-
-    P1 = zeros(P+1)
-    P2 = zeros(P+1)
-    if D == 2
-        vecfun = ipt -> begin
-            pt = pts[ipt]
-            x = pt[1]
-            y = pt[2]
-            for i in 0:P
-                P1[i+1] = basis(i, x)
-            end
-            if x == y
-                P2 .= P1
-            else
-                for j in 0:P
-                    P2[j+1] = basis(j, y)
-                end
-            end
-            res = zeros(N)
-            for idx in 1:N
-                i = multi_indices[idx][1]
-                j = multi_indices[idx][2]
-                res[idx] = P1[i+1] * P2[j+1]
-            end
-            return res
-        end
-    else # D == 3
-        P3 = zeros(P+1)
-        vecfun = ipt -> begin
-            pt = pts[ipt]
-            x = pt[1]
-            y = pt[2]
-            z = pt[3]
-            for i in 0:P
-                P1[i+1] = basis(i, x)
-            end
-            if x == y
-                P2 .= P1
-            else
-                for j in 0:P
-                    P2[j+1] = basis(j, y)
-                end
-            end
-            if x == z
-                P3 .= P1
-            elseif y == z
-                P3 .= P2
-            else
-                for k in 0:P
-                    P3[k+1] = basis(k, z)
-                end
-            end
-            res = zeros(N)
-            for idx in 1:N
-                i = multi_indices[idx][1]
-                j = multi_indices[idx][2]
-                k = multi_indices[idx][3]
-                res[idx] = P1[i+1] * P2[j+1] * P3[k+1]
-            end
-            return res
-        end
-    end
-    V = OnDemandMatrix(N, M, vecfun, by=:cols)
-    w = m.w
-    w_pruned,inds = begin
+    V, w = vandermonde_matrix_weights(m, basis, in_multi_index_set, 0; maxiter=maxiter)
+    res = begin
         if method == :lp
-            caratheodory_pruning_lp(V[:,:], w)
-        elseif method == :nnls
-            caratheodory_pruning_nnls(V[:,:], w)
-        else # CS Pruning
-            caratheodory_pruning(V, w, progress=true)
-        end
+            caratheodory_pruning_lp(Matrix(V), w; kernel_kwargs...)
+       elseif method == :nnls
+           caratheodory_pruning_nnls(Matrix(V), w; kernel_kwargs...)
+       elseif method == :greedy
+            caratheodory_pruning_greedy(Matrix(V), w; kernel_kwargs...)
+       else
+           caratheodory_pruning(V, w, progress=progress, return_error=return_error; kernel_kwargs...)
+       end
     end
-    sort!(inds)
-    return MonteCarloQuadrature(m.D, m.M, m.in_shape, pts[inds], w_pruned[inds])
+    w_pruned = res[1]
+    inds = res[2]
+    pts = [V.vecs[i].pt for i in inds]
+    if return_error
+        if (method != :lp && method != :nnls && method != :greedy)
+            err = res[3]
+        else
+            err = norm(V*w .- V[:,inds]*w_pruned[inds])
+        end
+        return MonteCarloQuadrature(D, M, m.in_shape, pts, w_pruned[inds]), err
+    end
+    return MonteCarloQuadrature(m.D, m.M, m.in_shape, pts, w_pruned[inds])
 end
 
 function visualize(m::MonteCarloQuadrature; markersize=10, title="Quadrature Rule", weight_label="Weights", crange=nothing)
@@ -227,7 +273,7 @@ function visualize(m::MonteCarloQuadrature; markersize=10, title="Quadrature Rul
                        title=title)
         tks = range(-1,1,1001)
         cm = cgrad([:grey,:white])
-        contourf!(fig[1,1], tks, tks, m.in_shape, colormap = cm)
+        contourf!(fig[1,1], tks, tks, (x,y) -> m.in_shape([x,y]), colormap = cm)
         cmap = Reverse(:inferno)
         scatter!(fig[1,1], x, y; color=col, colormap = cmap, 
                  markersize=markersize, strokewidth=markersize/10, 
@@ -238,7 +284,7 @@ function visualize(m::MonteCarloQuadrature; markersize=10, title="Quadrature Rul
         end
         resize_to_layout!(fig)
         fig
-    else # D == 3
+    elseif m.D == 3 # D == 3
         x = [p[1] for p in m.pts]
         y = [p[2] for p in m.pts]
         z = [p[3] for p in m.pts]
@@ -267,59 +313,32 @@ function visualize(m::MonteCarloQuadrature; markersize=10, title="Quadrature Rul
                      colorrange = colorrange, colormap = cmap, label = weight_label)
         end
         fig
+    else
+        error("D must be 2 or 3")
     end
 end
 
-function visualize_multi_indices(poly_cross::Function; markersize=5)
-    D = begin
-        try
-            poly_cross(0, 0)
-            2
-        catch
-            3
-        end
-    end
-    
+function visualize_multi_indices(in_multi_index_set::Function, D::Int; markersize=5)
+    multi_index_set = build_multi_index_set(in_multi_index_set, D)
+    P = multi_index_set[end][end]
     if D == 2
-        P = 0
-        while poly_cross(P+1, 0)
-            P += 1
-        end
         x = Int[]; y = Int[]
-        for i in 0:P
-            for j in 0:P
-                if poly_cross(i,j)
-                    push!(x, i)
-                    push!(y, j)
-                else
-                    break
-                end
-            end
+        for I in multi_index_set
+            push!(x, I[1])
+            push!(y, I[2])
         end
         fig = Figure(fontsize=16);
-        ax = Axis(fig[1,1], xlabel="x", xticks=0:2:P,
-                ylabel="y", yticks=0:2:P,
+        ax = Axis(fig[1,1], xlabel="x", xticks=0:(max(1,floor(Int,P/10))):P,
+                ylabel="y", yticks=0:(max(1,floor(Int,P/10))):P,
                 title="Basis Multi-Index Set")
         scatter!(ax, x, y; markersize=10, strokewidth=0)
         fig
     else # D == 3
-        P = 0
-        while poly_cross(P+1, 0, 0)
-            P += 1
-        end
         x = Int[]; y = Int[]; z=Int[];
-        for i in 0:P
-            for j in 0:P
-                for k in 0:P
-                    if poly_cross(i,j,k)
-                        push!(x, i)
-                        push!(y, j)
-                        push!(z, k)
-                    else
-                        break
-                    end
-                end
-            end
+        for I in multi_index_set
+            push!(x, I[1])
+            push!(y, I[2])
+            push!(z, I[3])
         end
         fig = Figure(fontsize=16);
         ax = Axis3(fig[1,1], xlabel="x", xticks=0:2:P,
