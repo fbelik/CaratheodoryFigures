@@ -204,9 +204,9 @@ version = "1.18.5+0"
 
 [[deps.CaratheodoryPruning]]
 deps = ["LinearAlgebra", "ProgressBars", "Random"]
-git-tree-sha1 = "bd15f9082ab1699c0241d7dbb8d3be18fad297d6"
+git-tree-sha1 = "de17842b2a680ad0048fcb455f62ad87d61a0d84"
 uuid = "ab320bfc-8242-4797-bfc4-9370c33880e7"
-version = "0.1.0"
+version = "0.1.1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra"]
