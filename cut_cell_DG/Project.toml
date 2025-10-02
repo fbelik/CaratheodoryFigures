@@ -1,0 +1,7 @@
+[deps]
+OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
+Plotly = "58dd65bb-95f3-509e-9936-c39a10fdeae7"
+PlotlyBase = "a03496cd-edff-5a9b-9e67-9cda94a718b5"
+StartUpDG = "472ebc20-7c99-4d4b-9470-8fde4e9faa0f"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
