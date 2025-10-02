@@ -1,7 +1,3 @@
-include("quadrature.jl")
-CairoMakie.activate!()
-
-name = "pumpkin"
 in_pumpkin(X) = begin
     x,y = X
     # Stem
@@ -25,27 +21,24 @@ in_pumpkin(X) = begin
     res |= inpoly(-x, y, [0.25, 0.25, 0.5, 0.5], [-0.65, -0.5, -0.5, -0.65])
 end
 
-m = MonteCarloQuadrature(in_pumpkin)
+function pumpkin_figures(M=Int(1e8), dofigs=true; 
+                         basis=besselj,
+                         in_multi_index_set=p_ball(25, 1/3))
+    name = "pumpkin"
+    m = MonteCarloQuadrature(in_pumpkin)
 
-plt1 = visualize(m, title="Pumpkin Shape")
-save("$(name)_shape.pdf", plt1)
+    m_pruned = addPrune(m, M, basis, in_multi_index_set)
 
-basis = (i,x) -> besselj(i,x)
-in_multi_index_set = (is) -> norm(is, 1/3) <= 31
+    save_mc("$(name)_pruned_$(M)_$(length(m_pruned.pts))", m_pruned)
 
-M = 50000
-m_pruned = addPrune(m, M, basis, in_multi_index_set)
+    if dofigs
+        plt1 = visualize(m, title="Pumpkin Shape")
+        save("$(name)_shape.pdf", plt1)
 
-plt2 = visualize_multi_indices(in_multi_index_set, m.D)
-save("$(name)_cross.pdf", plt2)
+        plt2 = visualize_multi_indices(in_multi_index_set, m.D)
+        save("$(name)_cross.pdf", plt2)
 
-plt3 = visualize(m_pruned, markersize=10, title="Pumpkin Pruned Quadrature Rule")
-save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
-save_mc(name, m_pruned)
-
-f = x -> x[1]
-m_pruned(f)
-
-# # To add more points
-# dM = 50000
-# m_pruned = addPrune(m_pruned, dM, basis, in_multi_index_set)
+        plt3 = visualize(m_pruned, markersize=10, title="Pumpkin Pruned Quadrature Rule")
+        save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
+    end
+end

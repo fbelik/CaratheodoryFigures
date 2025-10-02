@@ -1,7 +1,3 @@
-include("quadrature.jl")
-CairoMakie.activate!()
-
-name = "spiral"
 in_spiral(X,a=1/(8π)) = begin
     x,y = X
     θ = mod2pi(atan(y, x))
@@ -19,27 +15,24 @@ in_spiral(X,a=1/(8π)) = begin
     return res
 end
 
-m = MonteCarloQuadrature(in_spiral)
+function spiral_figures(M=Int(1e8), dofigs=true; 
+                         basis=legendrep,
+                         in_multi_index_set=total_degree(10))
+    name = "spiral"
+    m = MonteCarloQuadrature(in_spiral)
 
-plt1 = visualize(m, title="Spiral Shape")
-save("$(name)_shape.pdf", plt1)
+    m_pruned = addPrune(m, M, basis, in_multi_index_set)
 
-basis = (i,x) -> legendrep(i,x)
-in_multi_index_set = (is) -> sum(is) <= 20
+    save_mc("$(name)_pruned_$(M)_$(length(m_pruned.pts))", m_pruned)
 
-M = 50000
-m_pruned = addPrune(m, M, basis, in_multi_index_set)
+    if dofigs
+        plt1 = visualize(m, title="Spiral Shape")
+        save("$(name)_shape.pdf", plt1)
 
-plt2 = visualize_multi_indices(in_multi_index_set, m.D)
-save("$(name)_cross.pdf", plt2)
+        plt2 = visualize_multi_indices(in_multi_index_set, m.D)
+        save("$(name)_cross.pdf", plt2)
 
-plt3 = visualize(m_pruned, markersize=10, title="Spiral Pruned Quadrature Rule")
-save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
-save_mc(name, m_pruned)
-
-f = x -> x[1]
-m_pruned(f)
-
-# # To add more points
-# dM = 50000
-# m_pruned = addPrune(m_pruned, dM, basis, in_multi_index_set)
+        plt3 = visualize(m_pruned, markersize=10, title="Spiral Pruned Quadrature Rule")
+        save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
+    end
+end

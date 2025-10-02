@@ -1,6 +1,5 @@
 using CaratheodoryPruning
 using CairoMakie
-using GLMakie
 using LaTeXStrings
 using Random
 using ClassicalOrthogonalPolynomials
@@ -107,6 +106,18 @@ function randPt(m::MonteCarloQuadrature, maxiter=10000)::Tuple{Vector{Float64},I
     return (res, ct)
 end
 
+function hyperbolic_cross(r)
+    return is -> prod(is .+ 1) <= (r+1)
+end
+
+function p_ball(r, p)
+    return is -> norm(is, p) <= r
+end
+
+function total_degree(r)
+    return p_ball(r, 1)
+end
+
 function build_multi_index_set(in_multi_index_set::Function, D::Int)
     multi_indices = NTuple{D,Int}[]
     inds = zeros(Int, D)
@@ -132,6 +143,11 @@ function build_multi_index_set(in_multi_index_set::Function, D::Int)
     end
     return multi_indices
 end
+
+function index_set_size(in_multi_index_set::Function, D::Int)
+    return length(build_multi_index_set(in_multi_index_set, D))
+end
+
 
 function vandermonde_matrix_weights(m::MonteCarloQuadrature, basis, in_multi_index_set::Function, dM::Int=0; maxiter=10000)
     multi_indices = build_multi_index_set(in_multi_index_set, m.D)

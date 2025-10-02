@@ -1,7 +1,3 @@
-include("quadrature.jl")
-CairoMakie.activate!()
-
-name = "mickey"
 in_mickey(X) = begin
     x,y = X
     return ((x^2 + y^2) <= 0.5^2 || 
@@ -11,27 +7,24 @@ in_mickey(X) = begin
     inpoly(x,y,-1 .* [0,0.4,0.4],[-0.6,-0.4,-0.8]))
 end
 
-m = MonteCarloQuadrature(in_mickey)
+function mickey_figures(M=Int(1e8), dofigs=true; 
+                         basis=hermiteh,
+                         in_multi_index_set=hyperbolic_cross(20))
+    name = "mickey"
+    m = MonteCarloQuadrature(in_mickey)
 
-plt1 = visualize(m, title="Mickey Shape")
-save("$(name)_shape.pdf", plt1)
+    m_pruned = addPrune(m, M, basis, in_multi_index_set)
 
-basis = (i,x) -> hermiteh(i,x)
-in_multi_index_set = (is) -> prod(is .+ 1) <= 41
+    save_mc("$(name)_pruned_$(M)_$(length(m_pruned.pts))", m_pruned)
 
-M = 50000
-m_pruned = addPrune(m, M, basis, in_multi_index_set)
+    if dofigs
+        plt1 = visualize(m, title="Mickey Shape")
+        save("$(name)_shape.pdf", plt1)
 
-plt2 = visualize_multi_indices(in_multi_index_set, m.D)
-save("$(name)_cross.pdf", plt2)
+        plt2 = visualize_multi_indices(in_multi_index_set, m.D)
+        save("$(name)_cross.pdf", plt2)
 
-plt3 = visualize(m_pruned, markersize=10, title="Mickey Pruned Quadrature Rule")
-save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
-save_mc(name, m_pruned)
-
-f = x -> x[1]
-m_pruned(f)
-
-# # To add more points
-# dM = 50000
-# m_pruned = addPrune(m_pruned, dM, basis, in_multi_index_set)
+        plt3 = visualize(m_pruned, markersize=10, title="Mickey Pruned Quadrature Rule")
+        save("$(name)_pruned_$(M)_$(length(m_pruned.pts)).pdf", plt3)
+    end
+end
