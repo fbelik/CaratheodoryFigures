@@ -168,7 +168,7 @@ else
     plt2 = visualize(m_pruned_cs, markersize=10, title="GSCSP Pruned Perturbed Quadrature Rule")
     save("cs_pruned_weights.pdf", plt2)
 
-    c = ones(length(mp.w))
+    c = rand(length(mp.w))
     m_pruned_lp = prune(mp, basis, in_multi_index_set, method=:lp, c=c)
     plt3 = visualize(m_pruned_lp, markersize=10, title="LP Perturbed Quadrature Rule")
     save("lp_pruned_weights.pdf", plt3)
