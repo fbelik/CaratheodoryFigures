@@ -1,1 +1,1 @@
-Source code for replicating figures for X paper.
+### Source code for replicating fiures in the paper *Efficient and Robust Carathéodory-Steinitz Pruning of Positive Discrete Measures*. 
