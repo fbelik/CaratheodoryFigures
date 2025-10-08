@@ -59,10 +59,6 @@ function perturbation_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3], r
     cols = [:blue, :orange, :green]
     pltvals = []
     for (i,ress) in enumerate(resss)
-        #stds = std.(ress)
-        #means = mean.(ress)
-        #lowerrs = min.(stds, means .- alphas[1]*1e-2)
-        #higherrs = stds
         vals = quantile.(ress, 0.5)
         lowerrs = vals .- quantile.(ress, 1-quan)
         higherrs = quantile.(ress, quan) .- vals
@@ -81,7 +77,7 @@ function perturbation_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3], r
     return (f1, f2, resss)
 end
 
-function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3], reps=6, M=1000, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,10), lpopt=HiGHS.Optimizer, lpmult=1.0)
+function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3], reps=6, M=1000, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,10), lpopt=HiGHS.Optimizer)
     Random.seed!(1234)
     m0 = MonteCarloQuadrature(in_circle, 2)
     addPts!(m0, M)
@@ -89,8 +85,6 @@ function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
     c = rand(M)
     m0_pruned_lp = prune(m0, basis, in_multi_index_set, progress=false, method=:lp, c=c, optimizer=lpopt)
     ress_lp_ones = [zeros(reps) for _ in alphas]
-    # ress_lp_tenths = [zeros(reps) for _ in alphas]
-    # ress_lp_tens = [zeros(reps) for _ in alphas]
     ress_lp_rands = [zeros(reps) for _ in alphas]
     for i in ProgressBar(eachindex(alphas))
         for j in 1:reps
@@ -102,18 +96,6 @@ function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
                 println(e)
                 ress_lp_ones[i][j] = 1.0
             end
-            # try
-            #     mp_pruned = prune(mp, basis, in_multi_index_set, progress=false, method=:lp, noise=0,c=[c ; (0.1 .* ones(length(mp.w)-M))], optimizer=lpopt)
-            #     ress_lp_tenths[i][j] = dTV(m0_pruned_lp, mp_pruned)
-            # catch
-            #     ress_lp_tenths[i][j] = 1.0
-            # end
-            # try
-            #     mp_pruned = prune(mp, basis, in_multi_index_set, progress=false, method=:lp, noise=0,c=[c ; (10 .* ones(length(mp.w)-M))], optimizer=lpopt)
-            #     ress_lp_tens[i][j] = dTV(m0_pruned_lp, mp_pruned)
-            # catch
-            #     ress_lp_tens[i][j] = 1.0
-            # end
             try
                 mp_pruned = prune(mp, basis, in_multi_index_set, progress=false, method=:lp, noise=0,c=[c ; (rand(length(mp.w)-M))], optimizer=lpopt)
                 ress_lp_rands[i][j] = dTV(m0_pruned_lp, mp_pruned)
@@ -122,7 +104,7 @@ function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
             end
         end
     end
-    resss = [ress_lp_ones,ress_lp_rands]#[ress_lp_ones, ress_lp_tenths, ress_lp_tens, ress_lp_rands][[1,4]]
+    resss = [ress_lp_ones,ress_lp_rands]
     f2 = Figure()
     ax = Axis(f2[1, 1], xscale=log10, yscale=log10, xticks=LogTicks(-10:0), yticks=LogTicks(-10:1),
                     xlabel=L"$d_{TV}(\mu_M,\tilde{\mu}_M)$", ylabel=L"$d_{TV}(\nu,\tilde{\nu})$",
@@ -130,10 +112,6 @@ function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
     cols = [:orange, :purple]
     pltvals = []
     for (i,ress) in enumerate(resss)
-        #stds = std.(ress)
-        #means = mean.(ress)
-        #lowerrs = min.(stds, means .- alphas[1]*1e-2)
-        #higherrs = stds
         vals = quantile.(ress, 0.5)
         lowerrs = vals .- quantile.(ress, 1-quan)
         higherrs = quantile.(ress, quan) .- vals
@@ -152,26 +130,27 @@ function perturbation_lp_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
     return (f1, f2, resss)
 end
 
-lponly = true
+lponly = false
 
 M=10000
 dM1=10
 dM2=10000
+reps=20
 if lponly
-    f1, f2, resss = perturbation_lp_plot(reps=20, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM1));
+    f1, f2, resss = perturbation_lp_plot(reps=reps, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM1));
     save("perturbation_plot_lp_add_$(dM1)_weights_$M.pdf", f2)
 
-    f1, f2, resss = perturbation_lp_plot(reps=20, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM2));
+    f1, f2, resss = perturbation_lp_plot(reps=reps, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM2));
     save("perturbation_plot_lp_add_$(dM2)_weights_$M.pdf", f2)
 else 
-    f1, f2, resss = perturbation_plot(reps=20, M=M, perturb=perturbation_change_weights);
+    f1, f2, resss = perturbation_plot(reps=reps, M=M, perturb=perturbation_change_weights);
     save("perturbation_plot_origmeasure_$M.pdf", f1)
     save("perturbation_plot_change_weights_$M.pdf", f2)
 
-    f1, f2, resss = perturbation_plot(reps=20, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM1));
+    f1, f2, resss = perturbation_plot(reps=reps, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM1));
     save("perturbation_plot_add_$(dM1)_weights_$M.pdf", f2)
 
-    f1, f2, resss = perturbation_plot(reps=20, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM2));
+    f1, f2, resss = perturbation_plot(reps=reps, M=M, quan=0.8, perturb=(m,a) -> perturbation_add_weights(m,a,dM2));
     save("perturbation_plot_add_$(dM2)_weights_$M.pdf", f2)
 
     # Construct base quadrature rule accurate w.r.t. basis
@@ -183,13 +162,13 @@ else
     save("base_weights.pdf", plt1)
     save_mc("perturbation_test_unperturbed", m)
     # Perturb quadrature rule with small weights
-    mp = perturbation_add_weights(m, 1e-9, 10000)
+    mp = perturbation_add_weights(m, 1e-5, 100)
 
     m_pruned_cs = prune(mp, basis, in_multi_index_set) 
     plt2 = visualize(m_pruned_cs, markersize=10, title="GSCSP Pruned Perturbed Quadrature Rule")
     save("cs_pruned_weights.pdf", plt2)
 
-    c = rand(length(mp.w))
+    c = ones(length(mp.w))
     m_pruned_lp = prune(mp, basis, in_multi_index_set, method=:lp, c=c)
     plt3 = visualize(m_pruned_lp, markersize=10, title="LP Perturbed Quadrature Rule")
     save("lp_pruned_weights.pdf", plt3)
@@ -244,9 +223,9 @@ else
 
     plt5 = visualize(m_cs_err, markersize=10, title="GSCSP Pruned Relative Errors", weight_label="Relative Error", crange=(cmin,1))
     save("cs_relerr.pdf", plt5)
-    plt6 = visualize(m_lp_err, markersize=10, title="LP Relative Errors", weight_label="Relative Error", crange=(1e-1,1))
+    plt6 = visualize(m_lp_err, markersize=10, title="LP Relative Errors", weight_label="Relative Error", crange=(cmin,1))
     save("lp_relerr.pdf", plt6)
-    plt7 = visualize(m_nnls_err, markersize=10, title="NNLS Relative Errors", weight_label="Relative Error", crange=(1e-1,1))
+    plt7 = visualize(m_nnls_err, markersize=10, title="NNLS Relative Errors", weight_label="Relative Error", crange=(cmin,1))
     save("nnls_relerr.pdf", plt7)
 
     # Visualize against each other
