@@ -42,7 +42,7 @@ function perturbation_plot(;alphas=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3], r
             mp_pruned = prune(mp, basis, in_multi_index_set, progress=false)
             ress_cp[i][j] = dTV(m0_pruned, mp_pruned)
             try
-                mp_pruned = prune(mp, basis, in_multi_index_set, progress=false, method=:lp, noise=0,c=[c ; (ones(length(mp.w)-M) .* lpmult)], optimizer=lpopt)
+                mp_pruned = prune(mp, basis, in_multi_index_set, progress=false, method=:lp, noise=0,c=[c ; (ones(length(mp.w)-M))], optimizer=lpopt)
                 ress_lp[i][j] = dTV(m0_pruned_lp, mp_pruned)
             catch
                 ress_lp[i][j] = 1.0
