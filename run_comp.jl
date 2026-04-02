@@ -44,9 +44,9 @@ function time_test(Ms, Ns; time_tol=5.0, reps=5)
             times[3] = times[3][1:(i-1)]
             break
         end
-        times[1][i] = doCS ? sum(curtimes[1]) / 5 : NaN
-        times[2][i] = doLP ? sum(curtimes[2]) / 5 : NaN
-        times[3][i] = doNNLS ? sum(curtimes[3]) / 5 : NaN
+        times[1][i] = doCS ? sum(curtimes[1]) / reps : NaN
+        times[2][i] = doLP ? sum(curtimes[2]) / reps : NaN
+        times[3][i] = doNNLS ? sum(curtimes[3]) / reps : NaN
         println("finished i=$i/$(length(Ms))")
     end
     return times
