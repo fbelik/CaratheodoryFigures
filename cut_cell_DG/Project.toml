@@ -1,4 +1,6 @@
 [deps]
+KaimonGate = "5ee84a8c-75bd-412f-a7b8-4e6463aa635f"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Plotly = "58dd65bb-95f3-509e-9936-c39a10fdeae7"
 PlotlyBase = "a03496cd-edff-5a9b-9e67-9cda94a718b5"
