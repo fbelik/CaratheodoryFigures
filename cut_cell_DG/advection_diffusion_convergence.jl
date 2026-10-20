@@ -32,8 +32,8 @@ circles = (PresetGeometries.Circle(R=R0, x0=0.5, y0=-0.5),
            PresetGeometries.Circle(R=R0, x0=-0.5, y0=0.5))
 
 # polynomial degrees and cells per dimension for the h-refinement study
-N_list = 1:4
-K_list = [4, 8, 16, 32]
+P_list = 1:2#1:4
+K_list = [4,8]#[4, 8, 16, 32]
 
 # ---------------------------------------------------------------------------------------------
 # interpolation helpers 
@@ -190,14 +190,14 @@ function l2_error(u, t, rd, md)
     return sqrt(sum(md.wJq .* (uq .- uq_exact).^2))
 end
 
-function run_case(N, K; abstol=1e-8, reltol=1e-8)
-    rd, md, u0, params = setup(N, K)
+function run_case(P, K; abstol=1e-8, reltol=1e-8)
+    rd, md, u0, params = setup(P, K)
     ode = ODEProblem(rhs!, u0, (0.0, T_final), params)
     walltime = @elapsed sol = solve(ode, Tsit5(); abstol, reltol, save_everystep=false)
     error = l2_error(sol.u[end], T_final, rd, md)
-    @printf("  N=%d K=%2d: L2 error = %.4e  (%d accepted / %d rejected steps, %.1f s)\n",
-            N, K, error, sol.stats.naccept, sol.stats.nreject, walltime)
-    return (; N, K, h = 2 / K, error, nsteps = sol.stats.naccept, walltime)
+    @printf("  P=%d K=%2d: L2 error = %.4e  (%d accepted / %d rejected steps, %.1f s)\n",
+            P, K, error, sol.stats.naccept, sol.stats.nreject, walltime)
+    return (; P, K, h = 2 / K, error, nsteps = sol.stats.naccept, walltime)
 end
 
 const series_colors  = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
@@ -212,29 +212,63 @@ function plot_convergence(results; filename = joinpath(@__DIR__, "convergence_ad
              xticks=(h_all, latexstring.(h_all)), xlims=(minimum(h_all) / 1.3, maximum(h_all) * 2.0),
              legend=:bottomright, gridalpha=0.15, size=(700, 500), dpi=400,
              fontfamily="Computer Modern")
+    minerr = Inf
+    maxerr = -Inf
     for (i, N) in enumerate(Ns)
         r = sort(results[N], by = x -> x.K)
         h = [x.h for x in r]
         err = [x.error for x in r]
+        minerr = min(minimum(err), minerr)
+        maxerr = max(maximum(err), maxerr)
         color = series_colors[i]
         plot!(p, h, err, color=color, linewidth=2, marker=series_markers[i], markersize=6,
-              markerstrokecolor=:white, label=L"N = %$N")
+              markerstrokecolor=:white, label=L"P = %$N")
         # reference slope h^(N+1), anchored at the finest level, in the series color
         plot!(p, h, err[end] .* (h ./ h[end]).^(N+1), color=color, linestyle=:dash,
               linewidth=1, label="")
         # direct label at the coarsest point
-        annotate!(p, h[1] * 1.12, err[1], text(L"N = %$N", 9, :left, "#0b0b0b"))
+        annotate!(p, h[1] * 1.12, err[1], text(L"P = %$N", 9, :left, "#0b0b0b"))
     end
-    plot!(p, [NaN], [NaN], color=:gray, linestyle=:dash, linewidth=1, label=L"O(h^{N+1})")
+    plot!(p, [NaN], [NaN], color=:gray, linestyle=:dash, linewidth=1, label=L"O(h^{P+1})")
+    log10min = floor(Int, log10(minerr))
+    log10max = ceil(Int, log10(maxerr))
+    plot!(p, ylims=10.0 .^ (log10min, log10max), yticks=10.0 .^ (log10min:log10max))
     savefig(p, filename)
     println("Saved convergence plot to $filename")
     return p
 end
 
-results = Dict{Int, Vector{NamedTuple}}()
-for N in N_list
-    println("Running N = $N")
-    results[N] = [run_case(N, K) for K in K_list]
+function print_convergence_table(P_list, K_list, results)
+    errs = Dict(P => [r.error for r in results[P]] for P in P_list)
+    rates = Dict(P => [NaN ; -1 * diff(log.(errs[P])) ./ diff(log.(K_list))] for P in P_list)
+    colwidth = 9 + 2 + 5   # error, gap, rate
+    @printf("%8s", " ")
+    for P in P_list
+        @printf(" | %-*s", colwidth, "P = $P")
+    end
+    println()
+    @printf("%-8s", "h")
+    for P in P_list
+        @printf(" | %-9s  %5s", "L2 error", "rate")
+    end
+    println()
+    println("-"^(8 + length(P_list) * (3 + colwidth)))
+    for (i, K) in enumerate(K_list)
+        @printf("%-8.4f", 2 / K)
+        for P in P_list
+            rate = isnan(rates[P][i]) ? "-" : @sprintf("%.2f", rates[P][i])
+            @printf(" | %9.3e  %5s", errs[P][i], rate)
+        end
+        println()
+    end
 end
+
+results = Dict{Int, Vector{NamedTuple}}()
+for P in P_list
+    println("Running P = $P")
+    results[P] = [run_case(P, K) for K in K_list]
+end
+
+print_convergence_table(P_list, K_list, errs, rates)
 
 plot_convergence(results)

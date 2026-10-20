@@ -116,5 +116,8 @@ CSV.write("run_comp_1_$(time_tol)_$(reps).csv", df1)
 plt2, df2 = time_test_M(9:30, time_tol, reps)
 save("run_comp_2_$(time_tol)_$(reps).pdf", plt2)
 CSV.write("run_comp_2_$(time_tol)_$(reps).csv", df2)
+plt3, df3 = time_test_M(7:30, time_tol, reps)
+save("run_comp_2_$(time_tol)_$(reps).pdf", plt2)
+CSV.write("run_comp_2_$(time_tol)_$(reps).csv", df2)
 
 title = "Random Matrix Runtime Comparison with N=$(Ns[1])"

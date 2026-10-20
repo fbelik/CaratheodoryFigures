@@ -1702,9 +1702,11 @@ version = "1.0.4"
 
 [[deps.StartUpDG]]
 deps = ["CaratheodoryPruning", "ConstructionBase", "FillArrays", "HDF5", "Kronecker", "LinearAlgebra", "NodesAndModes", "PathIntersections", "Printf", "RecipesBase", "RecursiveArrayTools", "Reexport", "Setfield", "SparseArrays", "StaticArrays", "Triangulate", "WriteVTK"]
-git-tree-sha1 = "0f4fb111014536d3d06508ea17b7a2eb623dc714"
+git-tree-sha1 = "50735d3c21a5cab97cc19f9afecb4ac8c4e916d0"
+repo-rev = "main"
+repo-url = "https://github.com/jlchan/StartUpDG.jl"
 uuid = "472ebc20-7c99-4d4b-9470-8fde4e9faa0f"
-version = "1.4.1"
+version = "1.4.2"
 
     [deps.StartUpDG.extensions]
     StartUpDGSummationByPartsOperatorsExt = "SummationByPartsOperators"
