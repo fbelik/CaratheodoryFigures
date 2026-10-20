@@ -32,8 +32,8 @@ circles = (PresetGeometries.Circle(R=R0, x0=0.5, y0=-0.5),
            PresetGeometries.Circle(R=R0, x0=-0.5, y0=0.5))
 
 # polynomial degrees and cells per dimension for the h-refinement study
-P_list = 1:2#1:4
-K_list = [4,8]#[4, 8, 16, 32]
+P_list = 1:4
+K_list = [4, 8, 16, 32]
 
 # ---------------------------------------------------------------------------------------------
 # interpolation helpers 
