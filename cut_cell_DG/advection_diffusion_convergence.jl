@@ -269,6 +269,6 @@ for P in P_list
     results[P] = [run_case(P, K) for K in K_list]
 end
 
-print_convergence_table(P_list, K_list, errs, rates)
+print_convergence_table(P_list, K_list, results)
 
 plot_convergence(results)
